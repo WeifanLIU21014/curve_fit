@@ -1,0 +1,24 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 12
+  pre_build:
+    commands:
+      - echo PreBuild `date`
+      - aws --version
+      - sam --version
+      - npm install
+
+  build:
+    commands:
+      - echo Build `date`
+      - echo `pwd`
+      - npm run build -- --base=/$DEPLOY_TARGET/
+      
+  post_build:
+    commands:
+      - echo PostBuild `date`
+      - aws s3 sync dist/ s3://$S3_BUCKET/$DEPLOY_TARGET/ --delete
+      - aws cloudfront create-invalidation --distribution-id $DISTRIBUTION_ID --paths "/$DEPLOY_TARGET/*"
