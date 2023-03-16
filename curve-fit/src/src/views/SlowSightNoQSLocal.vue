@@ -88,11 +88,11 @@
           class="allCurrent active"
           @click="changeAdvCurrent(-1)">All</button>
         <button
-          class="hasAdvCurrent"
-          @click="changeAdvCurrent(1)">Yes</button>
-        <button
           class="noAdvCurrent"
-          @click="changeAdvCurrent(0)">No</button>
+          @click="changeAdvCurrent(1)">No</button>
+        <button
+          class="hasAdvCurrent"
+          @click="changeAdvCurrent(0)">Yes</button>
           <br>
         {{ getAdvCurrentDescription(advCurrent.val) }}
       </div>
@@ -221,11 +221,11 @@ const changeAdvCurrent = (newValue) => {
   const allCurrent = document.getElementsByClassName("allCurrent")[0]
   const hasAdvCurrent = document.getElementsByClassName("hasAdvCurrent")[0]
   const noAdvCurrent = document.getElementsByClassName("noAdvCurrent")[0]
-  if (newValue === 1) {
+  if (newValue === 0) {
     allCurrent.classList.remove('active')
     hasAdvCurrent.classList.add('active')
     noAdvCurrent.classList.remove('active')
-  } else if (newValue === 0) {
+  } else if (newValue === 1) {
     allCurrent.classList.remove('active')
     hasAdvCurrent.classList.remove('active')
     noAdvCurrent.classList.add('active')
@@ -259,9 +259,9 @@ const changeLB = (newValue) => {
 
 const getAdvCurrentDescription = (advCurrent) => {
   if (advCurrent === 0) {
-    return "Adverse current is included."
+    return "Adverse current condition is included."
   } else if (advCurrent === 1) {
-    return "Adverse current is not included."
+    return "Adverse current condtion is not included."
   } else if (advCurrent === -1) {
     return "Against/with current is not taken into consideration."
   }
