@@ -259,11 +259,11 @@ const changeLB = (newValue) => {
 
 const getAdvCurrentDescription = (advCurrent) => {
   if (advCurrent === 0) {
-    return "Adverse current is not included."
-  } else if (advCurrent === 1) {
     return "Adverse current is included."
+  } else if (advCurrent === 1) {
+    return "Adverse current is not included."
   } else if (advCurrent === -1) {
-    return "Current condition is not taken into consideration."
+    return "Against/with current is not taken into consideration."
   }
 }
 
