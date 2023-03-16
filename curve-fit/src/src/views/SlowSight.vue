@@ -79,6 +79,7 @@ onMounted(async () => {
    * 親WindowからのpostMessageを受け取る。
    */
   const onMessage = (event) => {
+    console.log(selectedBeaufort.value)
     if (event.origin === location.origin && event.data) {
       if (event.data.messageType === "selectFilterFromQsToCurveFit") {
         event.data.filterParams[0].forEach((item) => {
@@ -105,13 +106,13 @@ onMounted(async () => {
               break
           }
         })
+        console.log(selectedBeaufort.value)
       }
     }
+    console.log(selectedBeaufort.value)
   }
-  console.log(selectedShip.value)
-  window.removeEventListener('message', onMessage)
-  window.addEventListener('message', onMessage)
-  console.log(selectedShip.value)
+  // window.removeEventListener('message', onMessage)
+  window.addEventListener('message', onMessage, false)
 })
 
 // watch

@@ -12,6 +12,30 @@ const router = createRouter({
       component: () => import('../views/SlowSight.vue')
     },
     {
+      path: '/slowsightnoqs',
+      name: 'slowsightnoqs',
+      // route level code-splitting
+      // this generates a separate chunk (About.[hash].js) for this route
+      // which is lazy-loaded when the route is visited.
+      component: () => import('../views/SlowSightNoQS.vue')
+    },
+    {
+      path: '/slowsightlocal',
+      name: 'slowsightlocal',
+      // route level code-splitting
+      // this generates a separate chunk (About.[hash].js) for this route
+      // which is lazy-loaded when the route is visited.
+      component: () => import('../views/SlowSightLocal.vue')
+    },
+    {
+      path: '/slowsightnoqslocal',
+      name: 'slowsightnoqslocal',
+      // route level code-splitting
+      // this generates a separate chunk (About.[hash].js) for this route
+      // which is lazy-loaded when the route is visited.
+      component: () => import('../views/SlowSightNoQSLocal.vue')
+    },
+    {
       path: '/qsembed',
       name: 'qsembed',
       // route level code-splitting
