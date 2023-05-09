@@ -86,13 +86,13 @@
         <div class="itemcol">Adverse current:</div>
         <button
           class="allCurrent active"
-          @click="changeAdvCurrent(-1)">All</button>
+          @click="changeAdvCurrent(-1)">Include</button>
         <button
           class="noAdvCurrent"
-          @click="changeAdvCurrent(1)">No</button>
+          @click="changeAdvCurrent(1)">Exclude</button>
         <button
           class="hasAdvCurrent"
-          @click="changeAdvCurrent(0)">Yes</button>
+          @click="changeAdvCurrent(0)">Only adverse</button>
           <br>
         {{ getAdvCurrentDescription(advCurrent.val) }}
       </div>
@@ -120,7 +120,7 @@ const secretAccessKey = import.meta.env.VITE_AWS_SECRET_ACCESS_KEY
 const sessionToken = import.meta.env.VITE_AWS_SESSION_TOKEN
 const awsCredentialHeader = {
     'Authorization': `AWS ${accessKeyId}:${secretAccessKey}`
-  }
+}
 
 // constants
 const DATA_STORAGE_URL = 'https://d3uvvhom913tgh.cloudfront.net/data'
@@ -259,11 +259,11 @@ const changeLB = (newValue) => {
 
 const getAdvCurrentDescription = (advCurrent) => {
   if (advCurrent === 0) {
-    return "Adverse current condition is included."
+    return "Only adverse current."
   } else if (advCurrent === 1) {
-    return "Adverse current condtion is not included."
+    return "Adverse current condtion is excluded."
   } else if (advCurrent === -1) {
-    return "Against/with current is not taken into consideration."
+    return "All current is included."
   }
 }
 

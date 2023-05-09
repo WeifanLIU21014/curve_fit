@@ -36,6 +36,9 @@
       <div
         class="numinp"
         v-if="displayReady">
+        <!--ShipType-->
+        <div class="itemcol">WNI Ship type: </div>{{ selectedShipType }}
+        <br>
         <!--Beaufort-->
         <div class="itemcol">Beaufort scale: </div>
         <input
@@ -86,13 +89,13 @@
         <div class="itemcol">Adverse current:</div>
         <button
           class="allCurrent active"
-          @click="changeAdvCurrent(-1)">All</button>
+          @click="changeAdvCurrent(-1)">Include</button>
         <button
           class="noAdvCurrent"
-          @click="changeAdvCurrent(1)">No</button>
+          @click="changeAdvCurrent(1)">Exclude</button>
         <button
           class="hasAdvCurrent"
-          @click="changeAdvCurrent(0)">Yes</button>
+          @click="changeAdvCurrent(0)">Only adverse</button>
           <br>
         {{ getAdvCurrentDescription(advCurrent.val) }}
       </div>
@@ -102,25 +105,36 @@
       </div>
       <div 
         v-show="curveReady"
-        id="plotly"></div>
+        id="plotly">
+      </div>
+      <div 
+        v-show="curveReady"
+        id="plotlycii">
+      </div>
   </div>
+  <!-- <div 
+    class="tablepanel"
+    v-show="curveReady">
+    <Table
+      :table-data="tableData"
+    />
+  </div> -->
 </template>
 
 <script setup>
 import { Alglib } from 'https://cdn.jsdelivr.net/gh/Pterodactylus/Alglib.js@master/Alglib-v1.1.0.js'
-// import * as d3 from "https://cdn.jsdelivr.net/npm/d3@7/+esm"
 import Plotly from 'plotly.js-dist'
-import regression from 'regression'
 import { reactive, ref, watch, onMounted } from "vue"
+import Table from './Table.vue'
 
-// credentials for local development
-// copy and paste 
-const accessKeyId = import.meta.env.VITE_AWS_ACCESS_KEY_ID
-const secretAccessKey = import.meta.env.VITE_AWS_SECRET_ACCESS_KEY
-const sessionToken = import.meta.env.VITE_AWS_SESSION_TOKEN
-const awsCredentialHeader = {
-    'Authorization': `AWS ${accessKeyId}:${secretAccessKey}`
-  }
+// // credentials for local development
+// // copy and paste 
+// const accessKeyId = import.meta.env.VITE_AWS_ACCESS_KEY_ID
+// const secretAccessKey = import.meta.env.VITE_AWS_SECRET_ACCESS_KEY
+// const sessionToken = import.meta.env.VITE_AWS_SESSION_TOKEN
+// const awsCredentialHeader = {
+//     'Authorization': `AWS ${accessKeyId}:${secretAccessKey}`
+// }
 
 // constants
 const DATA_STORAGE_URL = 'https://d3uvvhom913tgh.cloudfront.net/data'
@@ -128,14 +142,24 @@ const DATA_STORAGE_URL = 'https://d3uvvhom913tgh.cloudfront.net/data'
 // data
 const imoList = ref([])
 const shipList = ref([])
-let aisDisplay
+const shipTypeList = ref([])
+const dwtList = ref([])
+const gtList = ref([])
+let aisDisplay = ref({ sog:[], foc:[], load_condition: [] })
+let cpDisplay = ref({ sog: [], foc:[], load_condition: [] })
+const tableData = ref({ ais: { sog:[], foc:[], load_condition: [] }, 
+                         cp: { sog:[], foc:[], load_condition: [] }})
 let aisImoData
+let cpImoData
 
 // reactive variables
 const shipTrigger = ref(true)
 const imoTrigger = ref(true)
 const selectedShip = ref("")
 const selectedImo = ref("")
+const selectedShipType = ref("")
+const selectedDwt = ref("")
+const selectedGt = ref("")
 const beaufort = reactive({min:0, max:12, colName: "beaufort", filterType: "between"})
 const sigwave = reactive({min:0, max:10, colName: "HTSGW", filterType: "between"})
 const advCurrent = reactive({val:-1, colName: "is_forward_CNT", filterType: "equal"})
@@ -158,8 +182,12 @@ onMounted(async () => {
         const index = imoList.value.indexOf(newValue)
         shipTrigger.value = false
         selectedShip.value = shipList.value[index]
+        selectedShipType.value = shipTypeList.value[index]
+        selectedDwt.value = dwtList.value[index]
+        selectedGt.value = gtList.value[index]
         await Promise.all([
-          getAISData(newValue)
+          getAISData(newValue),
+          getCpData(newValue)
         ])
         .then(() => {
           displayReady.value = true
@@ -169,7 +197,9 @@ onMounted(async () => {
       }
     } else {
       displayReady.value = false
+      curveReady.value = false
       selectedShip.value = ""
+      selectedShipType.value = ""
     }  
   }, { immediate: true })
 
@@ -180,8 +210,12 @@ onMounted(async () => {
         const index = shipList.value.indexOf(newValue)
         imoTrigger.value = false
         selectedImo.value = imoList.value[index]
+        selectedShipType.value = shipTypeList.value[index]
+        selectedDwt.value = dwtList.value[index]
+        selectedGt.value = gtList.value[index]
         await Promise.all([
-          getAISData(imoList.value[index])
+          getAISData(imoList.value[index]),
+          getCpData(imoList.value[index])
         ])
         .then(() => {
           displayReady.value = true
@@ -192,6 +226,7 @@ onMounted(async () => {
     } else {
       displayReady.value = false
       selectedImo.value = ""
+      selectedShipType.value = ""
     }
   }, { immediate: true })
 
@@ -259,18 +294,18 @@ const changeLB = (newValue) => {
 
 const getAdvCurrentDescription = (advCurrent) => {
   if (advCurrent === 0) {
-    return "Adverse current condition is included."
+    return "Only adverse current."
   } else if (advCurrent === 1) {
-    return "Adverse current condtion is not included."
+    return "Adverse current condtion is excluded."
   } else if (advCurrent === -1) {
-    return "Against/with current is not taken into consideration."
+    return "All current is included."
   }
 }
 
 const getAISData = async (imo) => {
   if (imo) {
     resetAisData()
-    resetDisplayData()
+    resetAisDisplayData()
     const result = await fetch(`${DATA_STORAGE_URL}/qs/${imo}.json`, {
       method: "GET",
       // headers: awsCredentialHeader,
@@ -287,8 +322,50 @@ const getAISData = async (imo) => {
         aisImoData.SECA.push(item.SECA)
         aisImoData.load_condition.push(item.load_condition)
       })
-      aisDisplay.sog = aisImoData.sog
-      aisDisplay.foc = aisImoData.foc
+      aisDisplay.value.sog = aisImoData.sog
+      aisDisplay.value.foc = aisImoData.foc
+      aisDisplay.value.load_condition = aisImoData.load_condition
+    })
+  }
+}
+
+const getCpData = async (imo) => {
+  if (imo) {
+    resetCpData()
+    resetCpDisplayData()
+    const result = await fetch(`${DATA_STORAGE_URL}/qs/${imo}_cp.json`, {
+      method: "GET",
+      // headers: awsCredentialHeader,
+      mode: "cors"
+    })
+    .then((res) => res.json())
+    .then((res) => {
+      res.forEach((item, idx) => {
+        cpImoData.sog.push(item.spd)
+        cpImoData.foc.push(item.foc)
+        cpImoData.goc.push(item.goc)
+        cpImoData.doc.push(item.doc)
+        cpImoData.beaufort.push(item.wind_scale-1)
+        // wave height
+        if (item.wave_type === "DSS") {
+          cpImoData.HTSGW.push(getSigWave(item.wave_scale))
+        }
+        else if (item.wave_type === "sgWave") {
+          cpImoData.HTSGW.push(item.wave_scale)
+        }
+        // current type
+        if (item.current_type === "All") {
+          cpImoData.is_forward_CNT.push(-1)
+        }
+        else if (item.current_type === "NoAdv") {
+          cpImoData.is_forward_CNT.push(1)
+        }
+        cpImoData.SECA.push(item.SECA)
+        cpImoData.load_condition.push(item.loading)
+      })
+      cpDisplay.value.sog = cpImoData.sog
+      cpDisplay.value.foc = cpImoData.foc
+      cpDisplay.value.load_condition = cpImoData.load_condition
     })
   }
 }
@@ -298,59 +375,71 @@ const resetAisData = () => {
                 "is_forward_CNT": [], "load_condition": []}
 }
 
-const resetDisplayData = () => {
-  aisDisplay = {"sog": [], "foc": []}
+const resetAisDisplayData = () => {
+  aisDisplay.value = {"sog": [], "foc": [], "load_condition": []}
+}
+
+const resetCpData = () => {
+  cpImoData = {"sog": [], "foc":[], "goc":[], "doc":[], "SECA":[], "beaufort":[],
+               "HTSGW": [], "is_forward_CNT": [], "load_condition": []}
+}
+
+const resetCpDisplayData = () => {
+  cpDisplay.value = {"sog": [], "foc": [], "load_condition": []} 
 }
 
 const setFilter = () => {
-  const goodFlag = { beaufort: [], HTSGW: [], is_forward_CNT: [], load_condition: [] }
+  const goodFlag = { ais: { beaufort: [], HTSGW: [], is_forward_CNT: [], load_condition: [] },
+                     cp: { beaufort: [], HTSGW: [], is_forward_CNT: [], load_condition: [] } }
 
   const filterArray = [beaufort, sigwave, advCurrent, lb]
+  const dataArray = [aisImoData, cpImoData]
+  const dataString = ["ais","cp"]
   for (const idx in filterArray) {
     const obj = filterArray[idx]
-    aisImoData[obj.colName].forEach((val,idx) => {
-      if (obj.filterType === "between") {
-        if (val >= obj.min && val <= obj.max) {
-          goodFlag[obj.colName].push(idx)
-        }
-      } else if (obj.filterType === "equal") {
-        if (obj.val !== -1) {
-          if (val === obj.val) {
-            goodFlag[obj.colName].push(idx)
+    for (const idx2 in dataArray) {
+      const data = dataArray[idx2]
+      const dataName = dataString[idx2]
+      data[obj.colName].forEach((val,idx3) => {
+        if (obj.filterType === "between") {
+          if (val >= obj.min && val <= obj.max) {
+            goodFlag[dataName][obj.colName].push(idx3)
           }
-        } else {
-          goodFlag[obj.colName].push(idx)
+        } else if (obj.filterType === "equal") {
+          if (obj.val !== -1) {
+            if (val === obj.val) {
+              goodFlag[dataName][obj.colName].push(idx3)
+            }
+          } else {
+            goodFlag[dataName][obj.colName].push(idx3)
+          }
         }
-      }
-    })
+      })
+    }
   }
 
-  // aisImoData[obj.colName].forEach((val,idx) => {
-  //   if (obj.filterType === "between") {
-  //     if (val >= obj.min && val <= obj.max) {
-  //       goodFlag.push(idx)
-  //     }
-  //   } else if (obj.filterType === "equal") {
-  //     if (obj.val !== -1) {
-  //       if (val === obj.val) {
-  //         goodFlag.push(idx)
-  //       }
-  //     } else {
-  //       goodFlag.push(idx)
-  //     }
-  //   }
-  // })
-
-  let finalGoodFlag = goodFlag.beaufort
+  let finalGoodFlag = {}
+  finalGoodFlag.ais = goodFlag.ais.beaufort
+  finalGoodFlag.cp = goodFlag.cp.beaufort
   for (let i = 1; i < filterArray.length; i++) {
     const name = filterArray[i].colName
-    finalGoodFlag = finalGoodFlag.filter(value => goodFlag[name].includes(value))
+    for (const idx in dataArray) {
+      const dataName = dataString[idx]
+      finalGoodFlag[dataName] = finalGoodFlag[dataName].filter(value => goodFlag[dataName][name].includes(value))
+    }
   }
 
-  resetDisplayData()
-  finalGoodFlag.forEach((idx) => {
-    aisDisplay.sog.push(aisImoData.sog[idx])
-    aisDisplay.foc.push(aisImoData.foc[idx])
+  resetAisDisplayData()
+  resetCpDisplayData()
+  finalGoodFlag.ais.forEach((idx) => {
+    aisDisplay.value.sog.push(aisImoData.sog[idx])
+    aisDisplay.value.foc.push(aisImoData.foc[idx])
+    aisDisplay.value.load_condition.push(aisImoData.load_condition[idx])
+  })
+  finalGoodFlag.cp.forEach((idx) => {
+    cpDisplay.value.sog.push(cpImoData.sog[idx])
+    cpDisplay.value.foc.push(cpImoData.foc[idx])
+    cpDisplay.value.load_condition.push(cpImoData.load_condition[idx])
   })
   updatePlot()
 }
@@ -373,15 +462,26 @@ const getData = async () => {
     res.forEach((item, idx) => {
       imoList.value.push(item.imo_num)
       shipList.value.push(item.ship_name)
+      shipTypeList.value.push(item.ship_type)
+      dwtList.value.push(item.dwt)
+      gtList.value.push(item.gt)
     })
   })
 }
 
-const calcRegression = () => {
-  const curveData = { "cubic": [], "power": [], "coeffCubic": [], "coeffPower": [] }
+const getSigWave = (DSS) => {
+  // return sigwave height from Douglas Sea State
+  // https://docs.google.com/document/d/1iGk9d7II9ynxeyL7sJ1pIHk1dGaPlAM4/edit#
+  // Average Wave Height x 1.6 = Significant Wave Height
+  const sigWaveArray = [0, 0.1, 0.5, 1.25, 2.5, 4, 6, 9, 14] * 1.6
+  return sigWaveArray[DSS]
+}
 
-  const sogData = aisDisplay.sog
-  const focData = aisDisplay.foc
+const calcRegression = () => {
+  const curveData = { "cubic": [], "coeffCubic": [], "cii": [] }
+
+  const sogData = aisDisplay.value.sog
+  const focData = aisDisplay.value.foc
 
   const regData = []
   for (let i = 0; i < sogData.length; i++) {
@@ -428,19 +528,6 @@ const calcRegression = () => {
     return sse
   }
 
-  const powerFunc = (coeff, x) => {
-    // y = ax^b + c
-    return coeff[0] * (x ** coeff[1]) + coeff[2]
-  }
-  const calcPower = (coeff) => {
-    let sum = 0
-    for (let i = 0; i < regData.length; ++i) {
-        sum = sum + Math.pow(regData[i][1] - powerFunc(coeff, regData[i][0]), 2)
-    }
-    let sse = Math.sqrt(sum)
-    return sse
-  }
-
   let solver = new Alglib()
   // let solver2 = new Alglib()
   solver.add_function(calcCubic) // Add the first equation to the solver.
@@ -448,36 +535,33 @@ const calcRegression = () => {
     const x_guess = [10,10,10,10] // Guess the initial values of the solution.
     const s = solver.solve("min", x_guess) // Solve the equation
     let a = solver.get_results()
+    const calcWeight = (selectedShipType.value === "PCTC") ? selectedGt.value : selectedDwt.value
+    const lfoCoeff = 3.151
     for (let i = 0; i < 301; i++) {
       const xValue = i / 10
       curveData.cubic.push(cubicFunc(a, xValue))
+      if (i < 101) {
+        curveData.cii.push(null)
+      } else {
+        curveData.cii.push(lfoCoeff * cubicFunc(a, xValue) * Math.pow(10,6) / (24 * calcWeight * xValue) )
+      }
+      
     }
     curveData.coeffCubic.push(...a)
   })
   .then(() => {
-    // solver2.add_function(calcPower) // Add the first equation to the solver.
-    // solver2.promise.then((result) => { 
-    //   const x_guess = [0.01,1,1,1] // Guess the initial values of the solution.
-    //   const s = solver2.solve("min", x_guess) // Solve the equation
-    //   let a = solver2.get_results()
-    //   for (let i = 0; i < 301; i++) {
-    //     const xValue = i / 10
-    //     curveData.power.push(powerFunc(a, xValue))
-    //   }
-    //   curveData.coeffPower.push(...a)
-    // })
-    // .then(() => {
-      curveReady.value = true
-      display(curveData)
-    // })
+    curveReady.value = true
+    tableData.value.ais = aisDisplay.value
+    tableData.value.cp = cpDisplay.value
+    display(curveData)
   })
 }
 
 const display = (data) => {
   // display AIS scatter
   const traceAis = {
-    x: [...aisDisplay.sog],
-    y: [...aisDisplay.foc],
+    x: [...aisDisplay.value.sog],
+    y: [...aisDisplay.value.foc],
     name: "AIS",
     mode: 'markers',
     type: 'scatter',
@@ -485,14 +569,14 @@ const display = (data) => {
   }
 
   // display CP scatter
-  // const traceCp = {
-  //   x: [...cpData.sog[selectedImo.value]],
-  //   y: [...cpData.foc[selectedImo.value]],
-  //   name: "Charter Party",
-  //   mode: 'markers',
-  //   type: 'scatter',
-  //   marker: { color: 'red' }
-  // }
+  const traceCp = {
+    x: [...cpDisplay.value.sog],
+    y: [...cpDisplay.value.foc],
+    name: "Charter Party",
+    mode: 'markers',
+    type: 'scatter',
+    marker: { color: 'red' }
+  }
 
   // display regression line (cubic)
   const traceRegCub = {
@@ -505,10 +589,10 @@ const display = (data) => {
   }
 
   // display regression line (power)
-  const traceRegPow = {
-    x: [...Array(301).keys()].map(x => x / 10),
-    y: data.power,
-    name: "arbitrary power (y=ax^b+c)",
+  const traceEstCii = {
+    x: [...Array(301).keys()].map(x => (x-1) / 10),
+    y: data.cii,
+    name: "estimated CII",
     type: 'scatter',
     marker: { color: 'rgb(35,134,0)' },
     line: { width: 6 }
@@ -516,11 +600,30 @@ const display = (data) => {
 
   // layout
   const layout = {
-    xaxis: {range: [0, 20]},
-    yaxis: {range: [0, 50]}
+    xaxis: {
+      range: [0, 20]
+    },
+    yaxis: {
+      range: [0, 50]
+    },
+    title: "AIS-based FOC Curve"
   }
-  const plotData = [traceAis, traceRegCub, traceRegPow]
+  const plotData = [traceAis, traceCp, traceRegCub]
   Plotly.newPlot('plotly', plotData, layout)
+
+  const layoutCii = {
+    xaxis: {
+      range: [10, 20]
+    },
+    yaxis: {
+      range: [Math.floor(Math.min(...data.cii.slice(101,202))), 
+              Math.ceil(Math.max(...data.cii.slice(101,202)))]
+    },
+    title: "Estimated CII based on FOC Curve",
+    showlegend: true
+  }
+  const plotDataCii = [traceEstCii]
+  Plotly.newPlot('plotlycii', plotDataCii, layoutCii)
 }
 </script>
 
@@ -566,6 +669,10 @@ const display = (data) => {
 #plotly {
   width: 700px;
   height: 450px;
+}
+
+.tablepanel {
+  padding: 5px;
 }
 
 img {

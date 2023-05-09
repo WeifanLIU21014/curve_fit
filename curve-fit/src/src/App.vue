@@ -1,13 +1,13 @@
 <script setup>
 import { RouterLink, RouterView } from 'vue-router'
 import { useQSStore } from './store/app'
-import SlowSightNoQS from './views/SlowSightNoQS.vue'
+import  curveFit from './views/curveFit.vue'
 
 const store = useQSStore()
 </script>
 
 <template>
-  <SlowSightNoQS />
+  <!-- <SlowSightNoQS /> -->
   <!-- <header>
 
     <div class="wrapper">
