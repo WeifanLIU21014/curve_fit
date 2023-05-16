@@ -1,6 +1,6 @@
 <template>
   <div class="about">
-    <div class="head">Reactive AIS Charter Party</div>
+    <div class="head">AIS Performance Table</div>
       <!--IMO-->
       <div class="itemcol">IMO number: </div>
       <input
@@ -627,7 +627,7 @@ const display = (data) => {
 }
 </script>
 
-<style>
+<style scoped>
 /* @media (min-width: 1024px) {
   .about {
     min-height: 100vh;

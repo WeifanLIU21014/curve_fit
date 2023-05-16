@@ -22,16 +22,6 @@ const router = createRouter({
       component: () => import('../views/curveFit.vue')
     },
     {
-      path: '/slowsightlocal',
-      name: 'slowsightlocal',
-      component: () => import('../views/SlowSightLocal.vue')
-    },
-    {
-      path: '/slowsightnoqslocal',
-      name: 'slowsightnoqslocal',
-      component: () => import('../views/SlowSightNoQSLocal.vue')
-    },
-    {
       path: '/qsembed',
       name: 'qsembed',
       component: () => import('../views/QsEmbed.vue')
